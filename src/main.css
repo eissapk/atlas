@@ -39,7 +39,6 @@ body {
 }
 
 .title,
-.info,
 .map-controls {
   position: fixed;
   z-index: 10;
@@ -130,73 +129,21 @@ html:fullscreen .map-controls .icon-exit {
   display: block;
 }
 
-.info {
-  top: max(16px, env(safe-area-inset-top));
-  right: max(16px, env(safe-area-inset-right));
-  width: 230px;
-  max-height: min(70vh, 520px);
-  padding: 12px 14px;
-  overflow-y: auto;
-  border-radius: 12px;
-}
-
-.info h2 {
-  margin: 0 0 8px;
-  font-size: 18px;
-}
-
-.info p {
-  margin: 4px 0;
-  font-size: 13px;
-  color: #555;
-}
-
-.info .official {
-  margin: -4px 0 8px;
-  font-size: 12px;
-  font-style: italic;
-  color: #888;
-}
-
-.info .note {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: #a15c00;
-}
-
-/* On a phone the panel drops to the bottom so the map keeps the screen. */
 @media (max-width: 720px) {
-  .info {
-    top: auto;
-    left: max(12px, env(safe-area-inset-left));
-    right: max(12px, env(safe-area-inset-right));
-    bottom: max(12px, env(safe-area-inset-bottom));
-    width: auto;
-  }
-
   .title {
     top: max(12px, env(safe-area-inset-top));
     left: max(12px, env(safe-area-inset-left));
   }
 
-  /* The info panel owns the bottom of the screen on a phone, so the controls
-     move to the middle of the right edge rather than sitting under it. */
   .map-controls {
-    top: 50%;
-    bottom: auto;
     right: max(12px, env(safe-area-inset-right));
-    transform: translateY(-50%);
+    bottom: max(12px, env(safe-area-inset-bottom));
   }
 }
 
-button {
-  padding: 8px 14px;
-  border: 1px solid #ccc;
-  border-radius: 7px;
-  background: white;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #eee;
-}
+/* No global `button` rule.
+   A bare `button { padding; border }` leaks into every design-system
+   component: with box-sizing:border-box it ate the entire content box of the
+   Sheet's 28px close button (14px padding a side + 1px border = 30px), so its
+   icon collapsed to zero width. The map controls style their own buttons and
+   the UI kit styles its own, so nothing needs a global default. */
