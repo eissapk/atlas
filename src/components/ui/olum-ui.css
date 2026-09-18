@@ -1,0 +1,97 @@
+/* source(...) roots class detection at src/ instead of the project root. Without
+   it Tailwind v4 scans every non-ignored file, so prose in README.md or
+   attribution.md leaks stray utilities into the build. (tailwind.config.js is a
+   v3-style config and is ignored unless loaded with @config.) */
+@import "tailwindcss" source("../../");
+
+:root {
+  --olum-radius: 0.625rem;
+  --olum-background: oklch(1 0 0);
+  --olum-foreground: oklch(0.145 0 0);
+  --olum-primary: oklch(0.205 0 0);
+  --olum-primary-foreground: oklch(0.985 0 0);
+  --olum-secondary: oklch(0.97 0 0);
+  --olum-secondary-foreground: oklch(0.205 0 0);
+  --olum-muted: oklch(0.97 0 0);
+  --olum-muted-foreground: oklch(0.556 0 0);
+  --olum-accent: oklch(0.97 0 0);
+  --olum-accent-foreground: oklch(0.205 0 0);
+  --olum-destructive: oklch(0.577 0.245 27.325);
+  --olum-border: oklch(0.922 0 0);
+  --olum-ring: oklch(0.708 0 0);
+  --olum-chart-1: oklch(0.646 0.222 41.116);
+  --olum-chart-2: oklch(0.6 0.118 184.704);
+  --olum-chart-3: oklch(0.398 0.07 227.392);
+  --olum-chart-4: oklch(0.828 0.189 84.429);
+  --olum-chart-5: oklch(0.769 0.188 70.08);
+}
+
+/* Toggled by the Navbar, which puts .dark on <html>. A neutral dark palette in
+   the same vein as shadcn's, so the components read as familiar. */
+.dark {
+  --olum-background: oklch(0.145 0 0);
+  --olum-foreground: oklch(0.985 0 0);
+  --olum-primary: oklch(0.922 0 0);
+  --olum-primary-foreground: oklch(0.205 0 0);
+  --olum-secondary: oklch(0.269 0 0);
+  --olum-secondary-foreground: oklch(0.985 0 0);
+  --olum-muted: oklch(0.269 0 0);
+  --olum-muted-foreground: oklch(0.708 0 0);
+  --olum-accent: oklch(0.371 0 0);
+  --olum-accent-foreground: oklch(0.985 0 0);
+  --olum-destructive: oklch(0.704 0.191 22.216);
+  /* 20%, not shadcn's 10%: their surfaces sit on a lighter --card so an edge
+     reads from the surface change as much as the border. Ours are transparent
+     over the page background, so the border does all the work -- at 10% it
+     blends to roughly L 0.23 against this background and disappears. */
+  --olum-border: oklch(1 0 0 / 20%);
+  --olum-ring: oklch(0.556 0 0);
+  --olum-chart-1: oklch(0.488 0.243 264.376);
+  --olum-chart-2: oklch(0.696 0.17 162.48);
+  --olum-chart-3: oklch(0.769 0.188 70.08);
+  --olum-chart-4: oklch(0.627 0.265 303.9);
+  --olum-chart-5: oklch(0.645 0.246 16.439);
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
+  }
+
+  /* Colors: without these the page keeps the browser's white default and only
+     the components that set bg-background follow the .dark palette.
+     Padding: room for the fixed Navbar; the rail adds its own inset at lg. */
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+@theme inline {
+  --color-background: var(--olum-background);
+  --color-foreground: var(--olum-foreground);
+  --color-primary: var(--olum-primary);
+  --color-primary-foreground: var(--olum-primary-foreground);
+  --color-secondary: var(--olum-secondary);
+  --color-secondary-foreground: var(--olum-secondary-foreground);
+  --color-muted: var(--olum-muted);
+  --color-muted-foreground: var(--olum-muted-foreground);
+  --color-accent: var(--olum-accent);
+  --color-accent-foreground: var(--olum-accent-foreground);
+  --color-destructive: var(--olum-destructive);
+  --color-border: var(--olum-border);
+  --color-ring: var(--olum-ring);
+  --color-chart-1: var(--olum-chart-1);
+  --color-chart-2: var(--olum-chart-2);
+  --color-chart-3: var(--olum-chart-3);
+  --color-chart-4: var(--olum-chart-4);
+  --color-chart-5: var(--olum-chart-5);
+  --radius-sm: calc(var(--olum-radius) * 0.6);
+  --radius-md: calc(var(--olum-radius) * 0.8);
+  --radius-lg: var(--olum-radius);
+  --radius-xl: calc(var(--olum-radius) * 1.4);
+}
