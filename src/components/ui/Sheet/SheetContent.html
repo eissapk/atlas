@@ -1,0 +1,83 @@
+<script>
+  import { props, onMount } from "olum";
+  import { twMerge } from "tailwind-merge";
+  import { wireModal } from "../portal";
+
+  const { side = "right", showCloseButton = true, class: className = "", children } = props();
+
+  onMount(() => {
+    const root = host.closest('[data-slot="sheet"]');
+    const input = root && root.querySelector(":scope > input");
+    const overlay = host.querySelector('[data-slot="sheet-overlay"]');
+    const content = host.querySelector('[data-slot="sheet-content"]');
+    const closeBtn = host.querySelector("[data-builtin-close]");
+    if (!input || !overlay || !content) return;
+
+    // SheetClose renders inside `content`, so once it's portaled it can't
+    // reach the checkbox by walking up the tree. Hand it over directly.
+    content.__olumModalInput = input;
+
+    const close = () => {
+      input.checked = false;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape" && input.checked) close();
+    };
+    const onOverlayClick = (e) => {
+      if (e.target === overlay) close();
+    };
+    // Content/overlay stay permanently mounted (no display toggling) so the
+    // slide/fade can actually transition -- a display:none -> flex swap
+    // happens in a single frame with nothing to animate from. Visibility
+    // comes from data-state driving transform/opacity + pointer-events, which
+    // is also why wireModal is called without `displays` here.
+    const syncState = () => {
+      const state = input.checked ? "open" : "closed";
+      overlay.setAttribute("data-state", state);
+      content.setAttribute("data-state", state);
+    };
+
+    closeBtn && closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", onOverlayClick);
+    document.addEventListener("keydown", onKey);
+
+    const unwire = wireModal({ input, nodes: [overlay, content], onOpen: syncState, onClose: syncState });
+    syncState();
+
+    return () => {
+      closeBtn && closeBtn.removeEventListener("click", close);
+      overlay.removeEventListener("click", onOverlayClick);
+      document.removeEventListener("keydown", onKey);
+      unwire();
+    };
+  });
+
+  // [&>[data-olum]]:contents collapses SheetHeader/SheetFooter's own host
+  // wrapper divs so they're the actual flex items here -- otherwise
+  // SheetFooter's mt-auto only pushes its own inner div down, not the bare
+  // wrapper div that's really the flex child, so it never reaches the
+  // bottom of a full-height (left/right) sheet.
+  const base =
+    "z-50 flex flex-col gap-4 bg-background bg-clip-padding text-sm text-foreground shadow-lg fixed pointer-events-none transition-transform duration-300 ease-in-out data-[state=open]:pointer-events-auto [&>[data-olum]]:contents";
+
+  const sides = {
+    top: "inset-x-0 top-0 h-auto border-b -translate-y-full data-[state=open]:translate-y-0",
+    bottom: "inset-x-0 bottom-0 h-auto border-t translate-y-full data-[state=open]:translate-y-0",
+    left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm -translate-x-full data-[state=open]:translate-x-0",
+    right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm translate-x-full data-[state=open]:translate-x-0",
+  };
+
+  const classes = () => twMerge(base, sides[side] || sides.right, className);
+</script>
+
+<div data-slot="sheet-overlay" class="fixed inset-0 z-50 bg-black/20 pointer-events-none opacity-0 transition-opacity duration-300 ease-in-out data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"></div>
+<div data-slot="sheet-content" data-side="{side}" class="{classes()}">
+  {children}
+  <if when="showCloseButton">
+    <button type="button" data-builtin-close class="absolute top-3 right-3 inline-flex size-7 items-center justify-center rounded-lg hover:bg-muted">
+      <svg class="size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+      <span class="sr-only">Close</span>
+    </button>
+  </if>
+</div>

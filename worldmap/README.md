@@ -50,6 +50,37 @@ callbacks untouched.
 `tooltip` (`true` \| `false` \| `(country) => string|Node`), `minZoom` (1),
 `maxZoom` (8), `ocean` (true), `label` (accessible name).
 
+## Merging countries
+
+`mergeCountries` is a plain transform of the geometry — geometry in, geometry
+out. The engine knows nothing about it.
+
+```js
+import { WorldMap, mergeCountries } from "worldmap";
+
+const geometry = mergeCountries(raw, {
+  gulf: { name: "Gulf States", members: ["682", "784", "634", "414"] },
+});
+
+new WorldMap("#map", {
+  geometry,
+  data: { gulf: { name: "Gulf States", currency: "Various" } },
+});
+```
+
+The key becomes the region's country id — use it for `data`, `selectCountry()`
+and `data-country-id`. Reusing a member's own id works too, so
+`{ "826": { name: "British Isles", members: ["826", "372"] } }` folds Ireland
+into the United Kingdom. `["682", "784"]` on its own is shorthand for
+`{ members: [...] }`.
+
+The border between merged members is removed, and the members' remaining
+borders are re-pointed at the group. A merged region does not stroke itself
+(its path is its members' outlines concatenated, so a stroke would redraw the
+border the merge just removed); its outline comes from the border layer
+instead. The one thing this costs is the hairline where a merged region meets
+the sea.
+
 ## Theming
 
 Three colours control the map:

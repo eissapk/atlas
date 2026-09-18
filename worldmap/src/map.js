@@ -147,7 +147,12 @@ export class WorldMap {
     });
     this._borderLayer = svgEl("path", {
       class: "wm-borders",
-      d: this._geometry.borders ?? "",
+      // Borders arrive as [countryA, countryB, path] triples so that merging
+      // can drop the ones between merged countries; drawing just needs them
+      // concatenated.
+      d: Array.isArray(this._geometry.borders)
+        ? this._geometry.borders.map((segment) => segment[2]).join("")
+        : (this._geometry.borders ?? ""),
     });
     this._markerLayer = svgEl("g", { class: "wm-markers" });
 
@@ -166,6 +171,11 @@ export class WorldMap {
     for (const country of this._geometry.countries) {
       const path = svgEl("path", { class: "wm-country", d: country.d });
       path.dataset.countryId = country.id;
+      // A merged country is the concatenation of its members' outlines, so its
+      // own stroke would still trace the boundary between them. The border
+      // layer already draws the group's edges against its neighbours, so the
+      // stroke is dropped instead (see .wm-country[data-merged] in the CSS).
+      if (country.members) path.dataset.merged = country.members.join(" ");
       path.setAttribute("role", "option");
       path.setAttribute("aria-selected", "false");
       path.setAttribute("tabindex", "-1");

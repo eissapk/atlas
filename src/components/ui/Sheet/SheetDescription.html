@@ -1,0 +1,10 @@
+<script>
+  import { props } from "olum";
+  import { twMerge } from "tailwind-merge";
+
+  const { class: className = "", children } = props();
+
+  const classes = () => twMerge("text-sm text-muted-foreground", className);
+</script>
+
+<div data-slot="sheet-description" class="{classes()}">{children}</div>

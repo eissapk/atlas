@@ -1,0 +1,10 @@
+<script>
+  import { props } from "olum";
+
+  const { defaultOpen = false, children } = props();
+</script>
+
+<div data-slot="sheet" class="contents">
+  <input type="checkbox" class="hidden" checked="{defaultOpen}" />
+  {children}
+</div>

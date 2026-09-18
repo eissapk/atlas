@@ -76,9 +76,12 @@
 /* --- countries ---------------------------------------------------------- */
 
 .wm-country {
+  /* Stroke width lives in a variable so the states below can change it and the
+     merged-country rule can still double whatever they chose. */
+  --_sw: var(--map-border-width);
   fill: var(--_fill);
   stroke: var(--_line);
-  stroke-width: var(--map-border-width);
+  stroke-width: var(--_sw);
   stroke-linejoin: round;
   /* Keeps hairlines hairlines at 8x zoom instead of turning them into slabs. */
   vector-effect: non-scaling-stroke;
@@ -93,7 +96,7 @@
   fill: var(--_selected);
   /* Selection is announced by weight as well as colour. */
   stroke: var(--_outline);
-  stroke-width: calc(var(--map-border-width) * 3);
+  --_sw: calc(var(--map-border-width) * 3);
 }
 
 .wm-country.is-disabled {
@@ -118,8 +121,26 @@
 
 .wm-country:focus-visible {
   stroke: var(--_outline);
-  stroke-width: calc(var(--map-border-width) * 4);
+  --_sw: calc(var(--map-border-width) * 4);
   stroke-dasharray: 4 2;
+}
+
+/*
+ * Merged countries (see mergeCountries).
+ *
+ * A merged path is its members' outlines concatenated, so stroking it normally
+ * would redraw the very border the merge removed. Painting the stroke *before*
+ * the fill solves it: the seam runs through the interior, so the fill covers it
+ * completely, while the region's outer edge keeps the half of its stroke that
+ * falls outside the shape. That half is why the width is doubled.
+ *
+ * This beats simply dropping the stroke — the coastline, the selected outline
+ * and the focus ring all survive, and it holds in every state rather than
+ * losing a specificity race with .is-selected.
+ */
+.wm-country[data-merged] {
+  paint-order: stroke fill;
+  stroke-width: calc(var(--_sw) * 2);
 }
 
 /*

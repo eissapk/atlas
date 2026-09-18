@@ -311,6 +311,111 @@ await settle(14);
 ok("removing the knobs restores defaults", getComputedStyle(egypt).fill === paintBefore.fill,
    `${getComputedStyle(egypt).fill} vs ${paintBefore.fill}`);
 
+// --- merging countries ---------------------------------------------------
+const { mergeCountries } = await import("../src/merge.js");
+const beforeCount = geometry.countries.length;
+const beforeBorders = geometry.borders.length;
+
+const fused = mergeCountries(geometry, {
+  alpine: { name: "Alpine Union", members: ["756", "040"] },
+});
+
+ok("merge leaves the source geometry untouched",
+   geometry.countries.length === beforeCount && geometry.borders.length === beforeBorders);
+ok("members collapse into one country", fused.countries.length === beforeCount - 1);
+
+const group = fused.countries.find((c) => c.id === "alpine");
+ok("group takes the id and the chosen name", group?.name === "Alpine Union");
+ok("group records its members",
+   [...group.members].sort().join() === "040,756", group?.members?.join());
+ok("group path is the members combined", group.d.length > 100 && group.d.startsWith("M"));
+ok("members are gone", !fused.countries.some((c) => c.id === "756" || c.id === "040"));
+
+const internal = fused.borders.filter(([a, b]) =>
+  (a === "756" && b === "040") || (a === "040" && b === "756"));
+ok("border between members is dropped", internal.length === 0);
+ok("borders to neighbours are re-pointed at the group",
+   fused.borders.some(([a, b]) => a === "alpine" || b === "alpine"));
+ok("no stale member ids remain in borders",
+   !fused.borders.some(([a, b]) => a === "756" || b === "756" || a === "040" || b === "040"));
+
+const host2 = document.createElement("div");
+host2.style.cssText = "width:600px;height:311px";
+document.body.append(host2);
+const map2 = new WorldMap(host2, {
+  geometry: fused,
+  data: { alpine: { name: "Alpine Union", capital: "Bern / Vienna" } },
+});
+const groupPath = host2.querySelector('[data-country-id="alpine"]');
+ok("merged country renders as one path", !!groupPath);
+ok("merged country is tagged with its members",
+   groupPath.getAttribute("data-merged").split(" ").sort().join() === "040,756",
+   groupPath.getAttribute("data-merged"));
+// The seam is hidden by painting the stroke under the fill, not by removing
+// the stroke — so the outline survives selection and focus.
+ok("merged country paints its stroke under its fill",
+   getComputedStyle(groupPath).paintOrder.startsWith("stroke"),
+   getComputedStyle(groupPath).paintOrder);
+ok("merged country still has an outline colour",
+   getComputedStyle(groupPath).stroke !== "none");
+
+// The seam must still be *filled*, i.e. the two really are one region.
+const seam = geometry.borders.find(([a, b]) =>
+  (a === "756" && b === "040") || (a === "040" && b === "756"));
+const nums = seam[2].match(/-?\d+(\.\d+)?/g).map(Number);
+const probes = [];
+for (let f = 0.2; f < 0.9; f += 0.2) {
+  const i = Math.floor((nums.length * f) / 2) * 2;
+  probes.push(new DOMPoint(nums[i], nums[i + 1]));
+}
+// isPointInStroke reports the stroke *geometry*, which still exists even when
+// nothing is painted, so the paint has to be checked separately.
+ok("the old border line is filled over",
+   probes.every((pt) => groupPath.isPointInFill(pt)));
+ok("and the border layer no longer carries it",
+   !fused.borders.some(([a, b]) =>
+     (a === "756" && b === "040") || (a === "040" && b === "756")));
+
+// Regression: .is-selected and [data-merged] have equal specificity, so a
+// selected merged country used to win back a stroke and redraw its seam.
+map2.selectCountry("alpine");
+ok("selected merged country still hides its seam",
+   getComputedStyle(groupPath).paintOrder.startsWith("stroke"),
+   getComputedStyle(groupPath).paintOrder);
+{
+  // Chrome reports this as "calc(3px)" rather than "3px", so pull the number out.
+  const px = (v) => parseFloat(/-?[\d.]+/.exec(String(v))?.[0] ?? "NaN");
+  const plain = host2.querySelector('[data-country-id="250"]');
+  const mergedW = getComputedStyle(groupPath).strokeWidth;
+  const plainW = getComputedStyle(plain).strokeWidth;
+  ok("selected merged country keeps a thicker outline",
+     px(mergedW) > px(plainW), `merged=${mergedW} plain=${plainW}`);
+}
+groupPath.focus();
+ok("focused merged country still hides its seam",
+   getComputedStyle(groupPath).paintOrder.startsWith("stroke"));
+map2.clearSelection();
+
+ok("the group is selectable by its new id", map2.selectCountry("alpine")?.name === "Alpine Union");
+ok("app data attaches to the group", map2.getCountry("alpine")?.capital === "Bern / Vienna");
+map2.destroy();
+host2.remove();
+
+{
+  // A stale data file must complain rather than half-merge in silence.
+  const warnings = [];
+  const realWarn = console.warn;
+  console.warn = (...a) => warnings.push(a.join(" "));
+  mergeCountries({ ...geometry, borders: "M0 0L1 1", format: "worldmap-paths@1" },
+                 { x: { name: "X", members: ["756", "040"] } });
+  console.warn = realWarn;
+  ok("warns when the geometry is too old to drop internal borders",
+     warnings.some((w) => w.includes("border")), warnings.join(" | "));
+}
+
+ok("merging nothing returns the geometry unchanged",
+   mergeCountries(geometry, {}) === geometry && mergeCountries(geometry) === geometry);
+
 // --- destroy -------------------------------------------------------------
 map.destroy();
 ok("destroy empties container", host.children.length === 0);

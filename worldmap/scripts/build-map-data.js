@@ -13,8 +13,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import feature from "topojson-client/src/feature.js";
-import mesh from "topojson-client/src/mesh.js";
+import feature, { object } from "topojson-client/src/feature.js";
+import stitch from "topojson-client/src/stitch.js";
 import {
   presimplify,
   simplify,
@@ -274,13 +274,63 @@ const detailedById = new Map(
   detailedCollection.features.map((f, i) => [i, f.geometry])
 );
 
-// Shared borders only, each traversed exactly once. The coastline is NOT
-// stored: it is already implied by the outline of every country fill, so the
-// renderer strokes the fills for it. This single mesh is then painted on top,
-// which covers the ragged interior seams left where one country's fill paints
-// over its neighbour's stroke. Storing a coastline too would roughly double
-// the file for geometry the browser already has.
-const interiors = mesh(topology, topology.objects.countries, (a, b) => a !== b);
+/**
+ * Shared borders, each traversed exactly once and *labelled with the two
+ * countries it separates*.
+ *
+ * A flat mesh would be smaller, but attribution is what makes merging
+ * countries possible at runtime: to fuse two countries into one you have to
+ * drop the border between them, and that needs to be findable.
+ *
+ * Every arc is walked once and tallied by owner. An arc owned by exactly two
+ * geometries is the boundary between them; owned by one, it is coastline
+ * (not stored — the country fills outline themselves).
+ */
+function borderSegmentsByPair(topology) {
+  const geometries = topology.objects.countries.geometries;
+
+  const idOf = geometries.map((g) =>
+    g.id !== undefined && g.id !== null
+      ? String(g.id)
+      : `name:${g.properties.name}`
+  );
+
+  const owners = new Map();
+  geometries.forEach((geometry, index) => {
+    const rings =
+      geometry.type === "Polygon"
+        ? geometry.arcs
+        : geometry.type === "MultiPolygon"
+          ? geometry.arcs.flat()
+          : [];
+    for (const ring of rings) {
+      for (const arc of ring) {
+        const key = arc < 0 ? ~arc : arc;
+        let set = owners.get(key);
+        if (!set) owners.set(key, (set = new Set()));
+        set.add(index);
+      }
+    }
+  });
+
+  const byPair = new Map();
+  for (const [arc, set] of owners) {
+    if (set.size !== 2) continue;
+    const [i, j] = [...set];
+    const a = idOf[i];
+    const b = idOf[j];
+    // Features merged under one ISO code are no longer two countries.
+    if (a === b) continue;
+    const key = a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
+    let list = byPair.get(key);
+    if (!list) byPair.set(key, (list = []));
+    list.push(arc);
+  }
+
+  return { byPair, idOf };
+}
+
+const { byPair } = borderSegmentsByPair(topology);
 
 // Pass 1 — measure the projected world so we can fit it to the viewBox.
 let minX = Infinity;
@@ -351,7 +401,7 @@ const finalCountries = [...merged.values()].sort((a, b) =>
 );
 
 const output = {
-  format: "worldmap-paths@1",
+  format: "worldmap-paths@2",
   resolution: RESOLUTION,
   // Everything a runtime projection needs to place a lat/lon marker on top of
   // these very same paths.
@@ -363,7 +413,15 @@ const output = {
   width: WIDTH,
   height,
   countries: finalCountries,
-  borders: geometryToPath(interiors, null, fit),
+  borders: [...byPair].flatMap(([key, arcs]) => {
+    const [a, b] = key.split("\u0000");
+    const line = object(topology, {
+      type: "MultiLineString",
+      arcs: stitch(topology, arcs),
+    });
+    const d = geometryToPath(line, null, fit);
+    return d ? [[a, b, d]] : [];
+  }),
 };
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -374,7 +432,11 @@ const kb = (n) => `${(n / 1024).toFixed(0)} kB`;
 console.log(`${path.relative(process.cwd(), outFile)}`);
 console.log(`  projection  ${PROJECTION}  viewBox 0 0 ${WIDTH} ${height}`);
 console.log(`  countries   ${finalCountries.length}`);
-console.log(`  borders     ${kb(output.borders.length)}`);
+console.log(
+  `  borders     ${output.borders.length} country pairs, ${kb(
+    output.borders.reduce((n, [, , d]) => n + d.length, 0)
+  )} of path`
+);
 console.log(`  total       ${kb(fs.statSync(outFile).size)}`);
 if (mergedCount) console.log(`  merged      ${mergedCount} feature(s) into a shared ISO code`);
 if (rescuedRings) console.log(`  rescued     ${rescuedRings} rings kept at full detail`);

@@ -1,0 +1,23 @@
+<script>
+  import { props, onMount } from "olum";
+  import { twMerge } from "tailwind-merge";
+
+  const { class: className = "", children } = props();
+
+  onMount(() => {
+    const root = host.closest('[data-slot="sheet"]');
+    const input = root && root.querySelector(":scope > input");
+    const btn = host.querySelector("button");
+    const onClick = () => {
+      if (!input) return;
+      input.checked = true;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    btn.addEventListener("click", onClick);
+    return () => btn.removeEventListener("click", onClick);
+  });
+
+  const classes = () => twMerge(className);
+</script>
+
+<button type="button" data-slot="sheet-trigger" class="{classes()}">{children}</button>
