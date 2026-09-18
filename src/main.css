@@ -1,0 +1,381 @@
+@import "tailwindcss";
+
+/* ========= Reset ========= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+/* ========= Tokens ========= */
+
+:root {
+  --nav-height: 68px;
+  --radius: 14px;
+
+  --paper: #f5f7f3;
+  --panel: #ffffff;
+  --ink: #10231a;
+  --muted: #5c6b62;
+  --line: #dde4dd;
+  --brand: #1fae66;
+  --brand-ink: #0f6b3e;
+  --brand-soft: #e3f5ea;
+
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* ========= Layout ========= */
+
+main {
+  min-height: 100vh;
+  padding: calc(var(--nav-height) + 56px) 24px 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ========= Navbar ========= */
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+
+  height: var(--nav-height);
+
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+
+  padding-inline: 24px;
+
+  background: rgba(245, 247, 243, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+
+  z-index: 1000;
+}
+
+.brand {
+  justify-self: start;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: var(--ink);
+  text-decoration: none;
+
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.brand img {
+  width: 22px;
+  height: 22px;
+}
+
+.nav-links {
+  justify-self: center;
+
+  display: flex;
+  gap: 4px;
+}
+
+.external-links {
+  justify-self: end;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.external-links a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 36px;
+  height: 36px;
+
+  color: var(--muted);
+  border-radius: 999px;
+
+  transition: 0.2s ease;
+}
+
+.external-links a svg {
+  width: 19px;
+  height: 19px;
+}
+
+.external-links a:hover {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.nav-links a {
+  color: var(--muted);
+  text-decoration: none;
+
+  padding: 8px 16px;
+  border-radius: 999px;
+
+  font-size: 14.5px;
+  font-weight: 500;
+
+  transition: 0.2s ease;
+}
+
+.nav-links a:hover {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.nav-links a.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* ========= Buttons ========= */
+
+button {
+  font-family: var(--font-mono);
+  padding: 12px 26px;
+
+  border: 1px solid var(--line);
+  border-radius: 999px;
+
+  background: var(--panel);
+  color: var(--ink);
+
+  font-size: 14.5px;
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+button:hover {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+/* ========= Window (signature frame) ========= */
+
+.window {
+  width: 100%;
+  max-width: 560px;
+
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+
+  box-shadow: 0 1px 2px rgba(16, 35, 26, 0.04), 0 20px 40px -24px rgba(16, 35, 26, 0.25);
+
+  animation: window-in 0.5s ease both;
+}
+
+@keyframes window-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .window {
+    animation: none;
+  }
+}
+
+.window-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  padding: 12px 16px;
+
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+.window-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.window-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.window-dots span:nth-child(1) {
+  background: #e3a9a6;
+}
+
+.window-dots span:nth-child(2) {
+  background: #ecd190;
+}
+
+.window-dots span:nth-child(3) {
+  background: #a6d8b6;
+}
+
+.window-path {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.window-body {
+  padding: 48px 40px;
+  text-align: center;
+}
+
+/* ========= Hero ========= */
+
+.mark {
+  width: 73px;
+  height: auto;
+  margin-bottom: 20px;
+  transition: filter 0.3s ease;
+}
+
+.mark-link {
+  display: inline-block;
+}
+
+.mark-link:hover .mark {
+  filter: drop-shadow(0 0 14px rgba(31, 174, 102, 0.55));
+}
+
+.hero .tagline {
+  margin: 0 0 32px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.window-body .hint {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.hint code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.hero-links {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.hero-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+
+  color: var(--ink);
+  text-decoration: none;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  transition: 0.2s ease;
+}
+
+.hero-links a svg {
+  width: 15px;
+  height: 15px;
+}
+
+.hero-links a.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.hero-links a.primary:hover {
+  background: #0b1712;
+}
+
+.hero-links a:not(.primary):hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+/* ========= About ========= */
+
+.about-window {
+  max-width: 640px;
+}
+
+.window-body h1 {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 33px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.window-body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.tag {
+  padding: 6px 12px;
+  border-radius: 999px;
+
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}

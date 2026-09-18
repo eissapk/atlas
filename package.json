@@ -1,0 +1,34 @@
+{
+  "name": "map",
+  "description": "Olum App",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run css && concurrently -k -n css,app -c magenta,green \"npm run css:watch\" \"npm run dev:app\"",
+    "build": "olum-compiler build",
+    "start": "olum-compiler start",
+    "css": "tailwindcss -i src/main.css -o public/main.css",
+    "css:watch": "npm run css -- --watch",
+    "dev:app": "olum-compiler dev"
+  },
+  "olum": {
+    "SITE_URL": "https://www.olumjs.top",
+    "SSG_DELAY": 0
+  },
+  "keywords": [
+    "olum"
+  ],
+  "author": "Eissa Saber",
+  "license": "ISC",
+  "dependencies": {
+    "olum": "^0.10.1",
+    "olum-router": "^0.5.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "concurrently": "^10.0.5",
+    "olum-compiler": "^2.1.1",
+    "olum-devtool": "^1.0.5",
+    "tailwindcss": "^4.3.3"
+  }
+}
