@@ -880,6 +880,9 @@ body {
   background: var(--map-water);
   color: #111;
 }
+#olum-app {
+  height: 100%;
+}
 #map {
   position: fixed;
   inset: 0;

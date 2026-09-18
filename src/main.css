@@ -32,6 +32,15 @@ body {
   color: #111;
 }
 
+/* Olum's mount point.
+   The modal portal applies `filter: blur()` here while a Sheet is open, and a
+   filter makes the element the containing block for every fixed-position
+   descendant. Everything on this page is fixed, so the root would otherwise be
+   zero-height and the map would collapse the moment the sheet opened. */
+#olum-app {
+  height: 100%;
+}
+
 /* The map is the page. Controls and the info panel float above it. */
 #map {
   position: fixed;

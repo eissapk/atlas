@@ -19,7 +19,11 @@ const PAGE_BLUR = "blur(4px)";
 // don't clear the blur out from under each other.
 let openCount = 0;
 
-const appRoot = () => document.getElementById("app");
+// Olum mounts the app into #olum-app; other shells use #app. Checking both
+// keeps the blur working wherever this is dropped in, instead of silently
+// no-oping when the id does not match.
+const appRoot = () =>
+  document.getElementById("app") || document.getElementById("olum-app");
 
 /**
  * Move `nodes` into <body>, outside the blurred app root.
