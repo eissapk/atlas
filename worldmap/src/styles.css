@@ -1,0 +1,199 @@
+/*
+ * WorldMap default theme.
+ *
+ * THREE COLOURS CONTROL THE MAP:
+ *
+ *   --map-land     the countries
+ *   --map-water    the sea, including the margins around the map
+ *   --map-border   the lines between and around countries
+ *
+ * Set them anywhere above the map — :root, a theme class, or .wm-root itself:
+ *
+ *   :root {
+ *     --map-land: #e8e1d4;
+ *     --map-water: #9ec4dd;
+ *     --map-border: #a2907a;
+ *   }
+ *
+ * Hover, selection and the disabled hatch are mixed from those three (plus
+ * --map-accent, the highlight colour), so changing the three keeps the whole
+ * map coherent. Every derived variable below can still be overridden on its
+ * own if you want finer control.
+ *
+ * Note the defaults live in var() fallbacks rather than being assigned to
+ * .wm-root. Assigning them here would beat anything an ancestor sets, so
+ * `:root { --map-land: … }` would silently do nothing.
+ */
+
+.wm-root {
+  /* The four inputs, resolved once. */
+  --_land: var(--map-land, #e8eaee);
+  --_water: var(--map-water, #dce9f5);
+  --_line: var(--map-border, #a8b0bd);
+  --_accent: var(--map-accent, #2f6fd0);
+
+  /* Derived, each still individually overridable. */
+  --_fill: var(--map-country-fill, var(--_land));
+  --_hover: var(--map-country-hover, color-mix(in oklab, var(--_accent) 28%, var(--_land)));
+  --_selected: var(--map-country-selected, var(--_accent));
+  --_disabled: var(--map-country-disabled, color-mix(in oklab, var(--_line) 22%, var(--_land)));
+  --_outline: var(--map-outline, color-mix(in oklab, var(--_accent) 62%, #0d1b2e));
+
+  --map-border-width: 0.5;
+
+  --map-tooltip-bg: #1d2430;
+  --map-tooltip-fg: #ffffff;
+  --map-tooltip-radius: 6px;
+
+  --map-marker-fill: #e0483c;
+  --map-marker-stroke: #ffffff;
+
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+
+/* Covers the letterbox bands too, so the map can fill any shape of container. */
+.wm-root.wm-has-ocean {
+  background: var(--_water);
+}
+
+.wm-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Without this the browser keeps scrolling/zooming the page during a drag
+     or a pinch, and the map only gets the leftovers. */
+  touch-action: none;
+  cursor: grab;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wm-svg:active {
+  cursor: grabbing;
+}
+
+/* --- countries ---------------------------------------------------------- */
+
+.wm-country {
+  fill: var(--_fill);
+  stroke: var(--_line);
+  stroke-width: var(--map-border-width);
+  stroke-linejoin: round;
+  /* Keeps hairlines hairlines at 8x zoom instead of turning them into slabs. */
+  vector-effect: non-scaling-stroke;
+  transition: fill 120ms ease-out;
+}
+
+.wm-country.is-hover {
+  fill: var(--_hover);
+}
+
+.wm-country.is-selected {
+  fill: var(--_selected);
+  /* Selection is announced by weight as well as colour. */
+  stroke: var(--_outline);
+  stroke-width: calc(var(--map-border-width) * 3);
+}
+
+.wm-country.is-disabled {
+  /* `fill` comes from the hatch pattern, set on the element itself. */
+  cursor: default;
+  transition: none;
+}
+
+.wm-hatch-bg {
+  fill: var(--_disabled);
+}
+
+.wm-hatch-line {
+  stroke: var(--_line);
+  stroke-width: 2;
+  opacity: 0.8;
+}
+
+.wm-country:focus {
+  outline: none;
+}
+
+.wm-country:focus-visible {
+  stroke: var(--_outline);
+  stroke-width: calc(var(--map-border-width) * 4);
+  stroke-dasharray: 4 2;
+}
+
+/*
+ * Shared borders, drawn once on their own layer and on top of every fill.
+ * Two neighbouring fills each stroke their side of a shared edge and then
+ * paint over one another; this pass covers that seam with a single clean line.
+ */
+.wm-borders {
+  fill: none;
+  stroke: var(--_line);
+  stroke-width: var(--map-border-width);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* --- markers ------------------------------------------------------------ */
+
+.wm-marker {
+  pointer-events: none;
+}
+
+.wm-marker.is-clickable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.wm-marker-dot {
+  fill: var(--map-marker-fill);
+  stroke: var(--map-marker-stroke);
+  stroke-width: 1.5;
+}
+
+.wm-marker-label {
+  font: 500 9px/1 system-ui, sans-serif;
+  fill: #1d2430;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.wm-marker.is-clickable:focus-visible .wm-marker-dot {
+  stroke: var(--map-outline);
+  stroke-width: 3;
+}
+
+/* --- tooltip ------------------------------------------------------------ */
+
+.wm-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  max-width: 220px;
+  padding: 5px 9px;
+  border-radius: var(--map-tooltip-radius);
+  background: var(--map-tooltip-bg);
+  color: var(--map-tooltip-fg);
+  font: 500 12px/1.4 system-ui, sans-serif;
+  white-space: nowrap;
+  /* Critical: a tooltip that accepts pointer events sits between the cursor
+     and the map and eats the hovers that produced it. */
+  pointer-events: none;
+  will-change: transform;
+}
+
+.wm-tooltip[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wm-country {
+    transition: none;
+  }
+}

@@ -1,68 +1,76 @@
 @import "./components/ui/olum-ui.css";
+@import "worldmap/styles.css";
 
+/* =========================================================================
+   MAP COLOURS — change these three.
+   Hover, selection and the disabled hatch are mixed from them automatically.
+   ========================================================================= */
+
+   :root {
+  --map-land: #f4efe5;
+  --map-water: #90d9ed;
+  --map-border: #7b7a78;
+  --map-accent: #f1e6d1;
+}
+
+  
 * {
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  /* The map handles its own drag/pinch gestures; the page must not scroll. */
+  overflow: hidden;
   font-family: Arial, sans-serif;
-  background: #f5f5f5;
+  background: var(--map-water);
   color: #111;
 }
 
-.app {
-  max-width: 1200px;
-  margin: auto;
-  padding: 30px;
+/* The map is the page. Controls and the info panel float above it. */
+#map {
+  position: fixed;
+  inset: 0;
 }
 
-.map-container {
-  position: relative;
-  overflow: hidden;
-  background: #dbeafe;
-  border: 1px solid #ddd;
+.controls,
+.info {
+  position: fixed;
+  z-index: 10;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(20, 28, 40, 0.1);
   border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(16, 24, 40, 0.13);
 }
 
-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  cursor: grab;
+.controls {
+  top: max(16px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
 }
 
-svg:active {
-  cursor: grabbing;
+.controls h1 {
+  margin: 0 0 8px;
+  font-size: 15px;
 }
 
-.country {
-  fill: #e5e7eb;
-  stroke: #ffffff;
-  stroke-width: 0.6;
-  cursor: pointer;
-  transition: fill 120ms;
-}
-
-.country:hover {
-  fill: #93c5fd;
-}
-
-.country.selected {
-  fill: #2563eb;
+.controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .info {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 220px;
-  padding: 16px;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.12);
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  width: 230px;
 }
 
 .info h2 {
@@ -70,16 +78,44 @@ svg:active {
   font-size: 18px;
 }
 
+.info {
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+
 .info p {
   margin: 4px 0;
-  font-size: 14px;
+  font-size: 13px;
   color: #555;
 }
 
-.controls {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 15px;
+.info .official {
+  margin: -4px 0 8px;
+  font-size: 12px;
+  font-style: italic;
+  color: #888;
+}
+
+.info .note {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #a15c00;
+}
+
+/* On a phone the panel drops to the bottom so the map keeps the screen. */
+@media (max-width: 720px) {
+  .info {
+    top: auto;
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: auto;
+  }
+
+  .controls {
+    top: max(12px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+  }
 }
 
 button {

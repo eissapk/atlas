@@ -1,0 +1,321 @@
+<!doctype html><html><head><meta charset="utf-8"><title>spec</title>
+<!-- Behaviour suite. Run with: npm run test:map (see scripts/run-spec.js) -->
+<link rel="stylesheet" href="../src/styles.css"></head>
+<body>
+<div id="map" style="width:1000px;height:518px"></div>
+<pre id="out"></pre>
+<script type="module">
+const out = document.getElementById("out");
+let pass = 0, fail = 0;
+const ok = (name, cond, extra = "") => {
+  if (cond) { pass++; out.textContent += `PASS  ${name}\n`; }
+  else { fail++; out.textContent += `FAIL  ${name}  ${extra}\n`; }
+};
+const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+const settle = async (n = 20) => { for (let i = 0; i < n; i++) await frame(); };
+
+try {
+const { WorldMap } = await import("../src/index.js");
+const geometry = await (await fetch(new URL("../data/world-50m.json", import.meta.url))).json();
+
+const host = document.getElementById("map");
+let hovered = "none", clicked = "none";
+const map = new WorldMap(host, {
+  geometry,
+  data: {
+    "818": { name: "Egypt", capital: "Cairo" },
+    "300": { name: "Greece", disabled: true },
+    "036": { name: "Australia" },
+  },
+  onCountryHover: (c) => { hovered = c ? c.id : null; },
+  onCountryClick: (c) => { clicked = c ? c.id : null; },
+});
+
+const svg = host.querySelector("svg");
+const viewport = host.querySelector(".wm-viewport");
+const egypt = host.querySelector('[data-country-id="818"]');
+const greece = host.querySelector('[data-country-id="300"]');
+const T = () => { const m = viewport.transform.baseVal.consolidate()?.matrix; return m ? {k:m.a,x:m.e,y:m.f} : {k:1,x:0,y:0}; };
+const centreOf = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width/2, y: r.top + r.height/2 }; };
+const pointer = (type, x, y, extra = {}) => svg.dispatchEvent(new PointerEvent(type, { pointerId: 1, pointerType: "mouse", clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: true, button: 0, ...extra }));
+
+// --- data + geometry -----------------------------------------------------
+ok("239 country paths rendered", host.querySelectorAll("[data-country-id]").length === 239);
+ok("border layer present + non-interactive", getComputedStyle(host.querySelector(".wm-borders")).pointerEvents === "none");
+ok("getCountry merges app data", map.getCountry("818")?.capital === "Cairo");
+ok("getCountry falls back to geometry name", map.getCountry("124")?.name === "Canada");
+ok("getCountry normalises 36 -> '036'", map.getCountry(36)?.name === "Australia");
+ok("unknown id -> null", map.getCountry("999") === null);
+
+// --- selection -----------------------------------------------------------
+map.selectCountry("818");
+ok("selectCountry sets class", egypt.classList.contains("is-selected"));
+ok("selectCountry sets aria-selected", egypt.getAttribute("aria-selected") === "true");
+ok("selection getter", map.selection?.id === "818");
+map.clearSelection();
+ok("clearSelection clears class", !egypt.classList.contains("is-selected"));
+ok("clearSelection clears getter", map.selection === null);
+
+// --- disabled ------------------------------------------------------------
+ok("disabled country hatched", greece.style.fill.startsWith("url(") && getComputedStyle(greece).fill.includes("url("), `computed=${getComputedStyle(greece).fill}`);
+ok("disabled country aria-disabled", greece.getAttribute("aria-disabled") === "true");
+ok("disabled country not selectable", map.selectCountry("300") === null);
+ok("disabled country not focusable", greece.getAttribute("tabindex") === "-1");
+
+// --- hover + tooltip -----------------------------------------------------
+const p = centreOf(egypt);
+egypt.dispatchEvent(new PointerEvent("pointermove", { pointerType: "mouse", clientX: p.x, clientY: p.y, bubbles: true }));
+await frame();
+ok("hover callback fired", hovered === "818", `got ${hovered}`);
+ok("hover class applied", egypt.classList.contains("is-hover"));
+const tip = host.querySelector(".wm-tooltip");
+ok("tooltip shown with name", !tip.hidden && tip.textContent === "Egypt", `"${tip.textContent}"`);
+ok("tooltip ignores pointer events", getComputedStyle(tip).pointerEvents === "none");
+// A disabled country still reports hover (so the app can explain why), but
+// must never become selectable.
+const gp = centreOf(greece);
+greece.dispatchEvent(new PointerEvent("pointermove", { pointerType: "mouse", clientX: gp.x, clientY: gp.y, bubbles: true }));
+await frame();
+ok("disabled country still reports hover", hovered === "300", `got ${hovered}`);
+ok("disabled country keeps its hatch on hover", getComputedStyle(greece).fill.includes("url("));
+pointer("pointerdown", gp.x, gp.y); pointer("pointerup", gp.x, gp.y);
+await frame();
+ok("tapping a disabled country selects nothing", map.selection === null, `sel=${map.selection?.id}`);
+
+svg.dispatchEvent(new PointerEvent("pointerleave", { pointerType: "mouse", bubbles: true }));
+await frame();
+ok("hover cleared on leave", hovered === null && !egypt.classList.contains("is-hover"));
+ok("tooltip hidden on leave", tip.hidden);
+
+// --- tap selects, drag does not -----------------------------------------
+clicked = "none";
+pointer("pointerdown", p.x, p.y); pointer("pointerup", p.x, p.y);
+await frame();
+ok("tap selects country", map.selection?.id === "818" && clicked === "818", `sel=${map.selection?.id} cb=${clicked}`);
+
+map.clearSelection(); clicked = "none";
+pointer("pointerdown", p.x, p.y);
+pointer("pointermove", p.x + 40, p.y + 25);
+pointer("pointerup", p.x + 40, p.y + 25);
+await settle();
+ok("drag pans without selecting", map.selection === null && clicked === "none", `sel=${map.selection?.id} cb=${clicked}`);
+// At zoom 1 the map exactly fills the frame, so clamping correctly pins it —
+// dragging can only move the map once there is something to reveal.
+map.zoomIn(); await settle(60);
+const dragFrom = T();
+pointer("pointerdown", p.x, p.y);
+pointer("pointermove", p.x + 40, p.y + 25);
+pointer("pointerup", p.x + 40, p.y + 25);
+await settle();
+ok("drag pans when zoomed in", Math.abs(T().x - dragFrom.x) > 1 || Math.abs(T().y - dragFrom.y) > 1,
+   `${JSON.stringify(dragFrom)} -> ${JSON.stringify(T())}`);
+ok("drag still did not select", map.selection === null);
+
+// --- zoom toward cursor --------------------------------------------------
+map.reset(); await settle();
+const inv = svg.getScreenCTM().inverse();
+const vb = new DOMPoint(p.x, p.y).matrixTransform(inv);
+const before = T();
+const contentBefore = { x: (vb.x - before.x) / before.k, y: (vb.y - before.y) / before.k };
+svg.dispatchEvent(new WheelEvent("wheel", { deltaY: -240, clientX: p.x, clientY: p.y, bubbles: true, cancelable: true }));
+await settle();
+const after = T();
+const contentAfter = { x: (vb.x - after.x) / after.k, y: (vb.y - after.y) / after.k };
+ok("wheel zoomed in", after.k > before.k, `${before.k} -> ${after.k}`);
+ok("zoom anchored at cursor",
+   Math.hypot(contentAfter.x - contentBefore.x, contentAfter.y - contentBefore.y) < 0.5,
+   `drift ${Math.hypot(contentAfter.x-contentBefore.x, contentAfter.y-contentBefore.y).toFixed(3)}`);
+
+// --- clamping ------------------------------------------------------------
+pointer("pointerdown", 500, 250);
+pointer("pointermove", 500 + 6000, 250 + 6000);
+pointer("pointerup", 500 + 6000, 250 + 6000);
+await settle();
+const t = T();
+ok("pan clamped to left/top edge", t.x <= 0.001 && t.y <= 0.001, JSON.stringify(t));
+ok("pan clamped to right/bottom edge",
+   t.x >= geometry.width - geometry.width * t.k - 0.001 && t.y >= geometry.height - geometry.height * t.k - 0.001);
+
+// --- zoom limits ---------------------------------------------------------
+for (let i = 0; i < 40; i++) map.zoomIn();
+await settle(60);
+ok("maxZoom respected", T().k <= 8.001, `k=${T().k}`);
+for (let i = 0; i < 40; i++) map.zoomOut();
+await settle(60);
+ok("minZoom respected", T().k >= 0.999 && T().k <= 1.001, `k=${T().k}`);
+map.reset(); await settle();
+ok("reset returns to identity", Math.abs(T().k - 1) < 0.001 && Math.abs(T().x) < 0.001);
+
+// --- touch: pinch, tap, no hover ----------------------------------------
+map.reset(); await settle(60);
+const touch = (type, id, x, y) => svg.dispatchEvent(new PointerEvent(type, {
+  pointerId: id, pointerType: "touch", clientX: x, clientY: y,
+  bubbles: true, cancelable: true, isPrimary: id === 10 }));
+
+const rect = svg.getBoundingClientRect();
+const mid = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+const invT = svg.getScreenCTM().inverse();
+const vbMid = new DOMPoint(mid.x, mid.y).matrixTransform(invT);
+const k0 = T().k;
+const anchorBefore = { x: (vbMid.x - T().x) / T().k, y: (vbMid.y - T().y) / T().k };
+
+touch("pointerdown", 10, mid.x - 40, mid.y);
+touch("pointerdown", 11, mid.x + 40, mid.y);
+touch("pointermove", 10, mid.x - 120, mid.y);
+touch("pointermove", 11, mid.x + 120, mid.y);
+await settle();
+const kPinch = T().k;
+ok("pinch zooms in", kPinch > k0 * 1.5, `${k0} -> ${kPinch}`);
+const anchorAfter = { x: (vbMid.x - T().x) / T().k, y: (vbMid.y - T().y) / T().k };
+ok("pinch anchored at midpoint",
+   Math.hypot(anchorAfter.x - anchorBefore.x, anchorAfter.y - anchorBefore.y) < 1.0,
+   `drift ${Math.hypot(anchorAfter.x-anchorBefore.x, anchorAfter.y-anchorBefore.y).toFixed(3)}`);
+
+touch("pointermove", 10, mid.x - 60, mid.y);
+touch("pointermove", 11, mid.x + 60, mid.y);
+await settle();
+ok("pinch back out zooms out", T().k < kPinch, `${kPinch} -> ${T().k}`);
+touch("pointerup", 10, mid.x - 60, mid.y);
+touch("pointerup", 11, mid.x + 60, mid.y);
+await settle();
+ok("pinch release leaves no stuck gesture", true);
+
+map.reset(); await settle(60);
+map.clearSelection(); clicked = "none"; hovered = "none";
+const tp = centreOf(egypt);
+touch("pointerdown", 20, tp.x, tp.y);
+touch("pointerup", 20, tp.x, tp.y);
+await settle();
+ok("tap-to-select works on touch", map.selection?.id === "818" && clicked === "818", `sel=${map.selection?.id} cb=${clicked}`);
+ok("touch does not trigger hover", hovered === "none" && !egypt.classList.contains("is-hover"));
+
+map.clearSelection(); clicked = "none";
+touch("pointerdown", 21, tp.x, tp.y);
+touch("pointermove", 21, tp.x + 50, tp.y + 30);
+touch("pointerup", 21, tp.x + 50, tp.y + 30);
+await settle();
+ok("one-finger drag pans without selecting", map.selection === null && clicked === "none");
+map.reset(); await settle(60);
+
+// --- markers -------------------------------------------------------------
+map.addMarker({ id: "cairo", lat: 30.0444, lon: 31.2357, label: "Cairo" });
+const markerEl = host.querySelector('[data-marker-id="cairo"]');
+ok("marker added", !!markerEl);
+const eb = egypt.getBBox();
+const mt = markerEl.getAttribute("transform").match(/translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\)/);
+const mx = +mt[1], my = +mt[2];
+ok("marker projected inside Egypt",
+   mx >= eb.x && mx <= eb.x + eb.width && my >= eb.y && my <= eb.y + eb.height,
+   `marker ${mx.toFixed(1)},${my.toFixed(1)} vs bbox ${eb.x.toFixed(1)},${eb.y.toFixed(1)} ${eb.width.toFixed(1)}x${eb.height.toFixed(1)}`);
+map.zoomIn(); await settle(60);
+const mt2 = markerEl.getAttribute("transform").match(/scale\(([-\d.]+)\)/);
+ok("marker counter-scales with zoom", Math.abs(+mt2[1] - 1 / T().k) < 0.01, `scale=${mt2[1]} k=${T().k}`);
+ok("marker keeps its position", markerEl.getAttribute("transform").startsWith(`translate(${mx}`));
+ok("removeMarker works", map.removeMarker("cairo") === true && !host.querySelector('[data-marker-id="cairo"]'));
+map.reset(); await settle();
+
+// --- keyboard ------------------------------------------------------------
+const focusOrderFirst = host.querySelector('[data-country-id][tabindex="0"]');
+ok("exactly one tab stop", host.querySelectorAll('[data-country-id][tabindex="0"]').length === 1);
+focusOrderFirst.focus();
+ok("country receives focus", document.activeElement === focusOrderFirst);
+focusOrderFirst.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+await frame();
+ok("ArrowRight moves focus", document.activeElement !== focusOrderFirst && document.activeElement.hasAttribute("data-country-id"));
+const focused = document.activeElement;
+focused.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+await frame();
+ok("Enter selects focused country", map.selection?.id === focused.dataset.countryId, `sel=${map.selection?.id}`);
+focused.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+await frame();
+ok("Escape clears selection", map.selection === null);
+
+// --- setData -------------------------------------------------------------
+map.selectCountry("818");
+map.setData({ "818": { name: "Egypt", disabled: true } });
+ok("setData disables + deselects", map.selection === null && egypt.classList.contains("is-disabled"));
+map.setData({ "818": { name: "Egypt" } });
+ok("setData re-enables", !egypt.classList.contains("is-disabled") && egypt.style.fill === "");
+
+// --- a11y ----------------------------------------------------------------
+ok("svg has accessible name", svg.getAttribute("aria-label") === "World map");
+ok("countries form a listbox", host.querySelector(".wm-countries").getAttribute("role") === "listbox");
+ok("each country is an option with a label", egypt.getAttribute("role") === "option" && egypt.getAttribute("aria-label") === "Egypt");
+
+// --- ocean option --------------------------------------------------------
+ok("ocean on by default", host.classList.contains("wm-has-ocean"));
+ok("ocean paints the whole frame, not just the viewBox",
+   getComputedStyle(host).backgroundColor !== "rgba(0, 0, 0, 0)");
+const bare = document.createElement("div");
+bare.style.cssText = "width:400px;height:400px";
+document.body.append(bare);
+const noOcean = new WorldMap(bare, { geometry, ocean: false });
+ok("ocean:false leaves the frame transparent", !bare.classList.contains("wm-has-ocean"));
+noOcean.destroy();
+ok("destroy removes the ocean class too", !bare.classList.contains("wm-has-ocean"));
+bare.remove();
+
+// --- theming: the three colour knobs ------------------------------------
+const rootStyle = document.documentElement.style;
+const paint = () => {
+  const c = getComputedStyle(egypt);
+  return { fill: c.fill, stroke: c.stroke, water: getComputedStyle(host).backgroundColor };
+};
+// `.wm-country` transitions `fill` over 120ms, so every colour assertion has
+// to wait for the transition to land — reading straight after setProperty
+// returns the pre-transition colour.
+const paintBefore = paint();
+
+// Set them on :root — NOT on .wm-root — to prove an ancestor wins. This is the
+// case that breaks if defaults are assigned to .wm-root instead of living in
+// var() fallbacks.
+rootStyle.setProperty("--map-land", "#ff0000");
+rootStyle.setProperty("--map-water", "#00ff00");
+rootStyle.setProperty("--map-border", "#0000ff");
+await settle(14);
+const paintAfter = paint();
+
+ok("--map-land drives country fill", paintAfter.fill === "rgb(255, 0, 0)", paintAfter.fill);
+ok("--map-water drives the ocean", paintAfter.water === "rgb(0, 255, 0)", paintAfter.water);
+ok("--map-border drives country stroke", paintAfter.stroke === "rgb(0, 0, 255)", paintAfter.stroke);
+ok("--map-border drives the border layer",
+   getComputedStyle(host.querySelector(".wm-borders")).stroke === "rgb(0, 0, 255)");
+ok("set from :root, not .wm-root", !host.style.getPropertyValue("--map-land"));
+
+// Derived states must follow the three, not stay at their old values.
+map.selectCountry("818");
+await settle(14);
+const selectedFill = getComputedStyle(egypt).fill;
+map.clearSelection();
+egypt.classList.add("is-hover");
+await settle(14);
+const hoverFill = getComputedStyle(egypt).fill;
+egypt.classList.remove("is-hover");
+await settle(14);
+ok("hover is mixed from land + accent", hoverFill !== paintBefore.fill && hoverFill !== paintAfter.fill,
+   `hover=${hoverFill}`);
+ok("disabled hatch follows land",
+   getComputedStyle(host.querySelector(".wm-hatch-bg")).fill !== "rgb(236, 238, 241)");
+ok("selection still contrasts against land", selectedFill !== paintAfter.fill, `selected=${selectedFill}`);
+
+// A granular override must still beat the derived value.
+rootStyle.setProperty("--map-country-hover", "#123456");
+egypt.classList.add("is-hover");
+await settle(14);
+ok("individual variables still override",
+   getComputedStyle(egypt).fill === "rgb(18, 52, 86)", getComputedStyle(egypt).fill);
+egypt.classList.remove("is-hover");
+
+["--map-land","--map-water","--map-border","--map-country-hover"].forEach((v) => rootStyle.removeProperty(v));
+await settle(14);
+ok("removing the knobs restores defaults", getComputedStyle(egypt).fill === paintBefore.fill,
+   `${getComputedStyle(egypt).fill} vs ${paintBefore.fill}`);
+
+// --- destroy -------------------------------------------------------------
+map.destroy();
+ok("destroy empties container", host.children.length === 0);
+ok("destroy removes root class", !host.classList.contains("wm-root"));
+
+} catch (err) { fail++; out.textContent += "THREW: " + (err && (err.stack || err.message)) + "\n"; }
+window.__result = { pass, fail, log: out.textContent };
+</script></body></html>

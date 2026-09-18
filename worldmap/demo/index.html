@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <title>WorldMap — vanilla SVG map engine</title>
+    <link rel="stylesheet" href="../src/styles.css" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --panel: rgba(255, 255, 255, 0.82);
+        --panel-solid: #fff;
+        --ink: #1d2430;
+        --muted: #667085;
+        --line: rgba(20, 28, 40, 0.1);
+        --shadow: 0 6px 24px rgba(16, 24, 40, 0.13), 0 1px 3px rgba(16, 24, 40, 0.08);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --panel: rgba(24, 30, 39, 0.84);
+          --panel-solid: #181e27;
+          --ink: #e8eaee;
+          --muted: #98a2b3;
+          --line: rgba(255, 255, 255, 0.1);
+          --shadow: 0 6px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        overflow: hidden;              /* the map owns the scroll gestures */
+        color: var(--ink);
+        font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #dce9f5;
+      }
+
+      /* The map is the page. Everything else floats above it. */
+      #map { position: fixed; inset: 0; }
+
+      .hud {
+        position: fixed;
+        z-index: 10;
+        background: var(--panel);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+      }
+
+      .hud-controls {
+        top: max(16px, env(safe-area-inset-top));
+        left: max(16px, env(safe-area-inset-left));
+        padding: 12px 14px;
+        max-width: calc(100vw - 32px);
+      }
+      .hud-controls h1 { margin: 0; font-size: 15px; letter-spacing: -0.01em; }
+      .hud-controls p { margin: 2px 0 10px; font-size: 12px; color: var(--muted); }
+      .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+      button {
+        font: inherit; font-size: 13px; padding: 6px 11px;
+        border: 1px solid var(--line); border-radius: 8px;
+        background: var(--panel-solid); color: var(--ink); cursor: pointer;
+      }
+      button:hover { border-color: var(--muted); }
+      button:focus-visible { outline: 2px solid #2f6fd0; outline-offset: 2px; }
+      label { font-size: 12px; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; }
+
+      .hud-info {
+        top: max(16px, env(safe-area-inset-top));
+        right: max(16px, env(safe-area-inset-right));
+        width: 250px;
+        padding: 14px 16px;
+      }
+      .hud-info h2 { margin: 0 0 2px; font-size: 17px; }
+      .hud-info .sub { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+      dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; font-size: 13px; }
+      dt { color: var(--muted); }
+      dd { margin: 0; }
+
+      .hint {
+        position: fixed; z-index: 10;
+        left: max(16px, env(safe-area-inset-left));
+        bottom: max(16px, env(safe-area-inset-bottom));
+        max-width: min(460px, calc(100vw - 32px));
+        padding: 8px 12px;
+        font-size: 11.5px; line-height: 1.7; color: var(--muted);
+        background: var(--panel);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--line); border-radius: 10px;
+      }
+      kbd { font: 10.5px/1 ui-monospace, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 4px; }
+
+      /* On a phone the info card drops to the bottom and the hint gets out of
+         the way, so the map keeps as much of the screen as possible. */
+      @media (max-width: 720px) {
+        .hud-info {
+          top: auto;
+          left: max(12px, env(safe-area-inset-left));
+          right: max(12px, env(safe-area-inset-right));
+          bottom: max(12px, env(safe-area-inset-bottom));
+          width: auto;
+        }
+        .hud-controls { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); max-width: none; }
+        .hud-controls p { display: none; }
+        .hint { display: none; }
+      }
+
+      /* The whole map is themed by three colours. */
+      :root {
+        --map-land: #e8eaee;
+        --map-water: #d7e7f6;
+        --map-border: #a8b0bd;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --map-land: #303845;
+          --map-water: #16202c;
+          --map-border: #4d5867;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <div class="hud hud-controls">
+      <h1>WorldMap</h1>
+      <p>Vanilla SVG — no D3, no TopoJSON, no CDN.</p>
+      <div class="toolbar">
+        <button id="zoom-in" aria-label="Zoom in">Zoom in</button>
+        <button id="zoom-out" aria-label="Zoom out">Zoom out</button>
+        <button id="reset">Reset</button>
+        <button id="pick-egypt">Egypt</button>
+        <button id="clear">Clear</button>
+        <button id="fullscreen">Full screen</button>
+        <button id="theme">Theme</button>
+        <label><input type="checkbox" id="toggle-markers" checked /> Markers</label>
+      </div>
+    </div>
+
+    <aside class="hud hud-info" aria-live="polite">
+      <h2 id="info-name">World</h2>
+      <p class="sub" id="info-sub">Click or tap a country.</p>
+      <dl id="info-details"></dl>
+    </aside>
+
+    <p class="hint">
+      Drag to pan · wheel to zoom at the cursor · pinch on touch ·
+      <kbd>Tab</kbd> then <kbd>←</kbd><kbd>→</kbd> to move,
+      <kbd>Enter</kbd> to select, <kbd>Esc</kbd> to clear.
+      Greece and Belarus are disabled.
+    </p>
+
+    <script type="module" src="./demo.js"></script>
+  </body>
+</html>

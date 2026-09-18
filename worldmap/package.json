@@ -1,0 +1,26 @@
+{
+  "name": "worldmap",
+  "version": "0.1.0",
+  "description": "A small vanilla SVG world map engine — no framework, no runtime dependencies.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": ["svg", "map", "world-map", "vanilla", "choropleth", "no-dependencies"],
+  "exports": {
+    ".": "./src/index.js",
+    "./styles.css": "./src/styles.css",
+    "./data/world-50m.json": "./data/world-50m.json",
+    "./data/world-110m.json": "./data/world-110m.json"
+  },
+  "files": ["src", "data", "README.md"],
+  "sideEffects": ["*.css"],
+  "scripts": {
+    "data": "node scripts/build-map-data.js --resolution 50m && node scripts/build-map-data.js --resolution 110m",
+    "demo": "node scripts/serve-demo.js",
+    "test": "node scripts/run-spec.js"
+  },
+  "devDependencies": {
+    "topojson-client": "^3.1.0",
+    "topojson-simplify": "^3.0.3",
+    "world-atlas": "^2.0.2"
+  }
+}

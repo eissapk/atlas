@@ -4,12 +4,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm run css && concurrently -k -n css,app -c magenta,green \"npm run css:watch\" \"npm run dev:app\"",
     "build": "olum-compiler build",
-    "start": "olum-compiler start",
     "css": "tailwindcss -i src/main.css -o public/main.css",
     "css:watch": "npm run css -- --watch",
-    "dev:app": "olum-compiler dev"
+    "dev": "npm run css && concurrently -k -n css,app -c magenta,green \"npm run css:watch\" \"npm run dev:app\"",
+    "dev:app": "olum-compiler dev",
+    "map:countries": "node scripts/build-country-data.js",
+    "map:data": "node worldmap/scripts/build-map-data.js --resolution 50m && node worldmap/scripts/build-map-data.js --resolution 110m && cp worldmap/data/world-50m.json public/",
+    "map:demo": "node worldmap/scripts/serve-demo.js",
+    "map:test": "node worldmap/scripts/run-spec.js",
+    "start": "olum-compiler start"
   },
   "olum": {
     "SITE_URL": "https://www.olumjs.top",
@@ -21,14 +25,12 @@
   "author": "Eissa Saber",
   "license": "ISC",
   "dependencies": {
-    "d3": "^7.9.0",
     "olum": "^0.10.1",
     "olum-router": "^0.5.3",
     "olum-store": "^0.1.0",
     "olum-transition": "^0.2.1",
     "tailwind-merge": "latest",
-    "topojson-client": "^3.1.0",
-    "world-atlas": "^2.0.2"
+    "worldmap": "file:./worldmap"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
@@ -36,6 +38,10 @@
     "olum-compiler": "^2.1.1",
     "olum-devtool": "^1.0.5",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.3.0"
+    "topojson-client": "^3.1.0",
+    "topojson-simplify": "^3.0.3",
+    "vite": "^8.3.0",
+    "world-atlas": "^2.0.2",
+    "world-countries": "^5.1.0"
   }
 }
