@@ -9,6 +9,7 @@
     "css:watch": "npm run css -- --watch",
     "dev": "npm run css && concurrently -k -n css,app -c magenta,green \"npm run css:watch\" \"npm run dev:app\"",
     "dev:app": "olum-compiler dev",
+    "map:code": "node scripts/find-code.js",
     "map:countries": "node scripts/build-country-data.js",
     "map:data": "node worldmap/scripts/build-map-data.js --resolution 50m && node worldmap/scripts/build-map-data.js --resolution 110m && cp worldmap/data/world-50m.json public/",
     "map:demo": "node worldmap/scripts/serve-demo.js",
